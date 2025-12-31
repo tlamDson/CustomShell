@@ -19,9 +19,9 @@ gcc -Wall -Werror -g -Og -o customShell customShell.c
 
 ### Contributers
 
-| Name        | Email                 |
-| ----------- | --------------------- |
-| Dave Nguyen | nguyend2@carleton.edu |
+| Name     | Email                |
+| -------- | -------------------- |
+| Lam Pham | phamla@dickinson.edu |
 
 ## Contents
 
