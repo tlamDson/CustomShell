@@ -52,6 +52,17 @@ void delete_job(pid_t pid) {
     }
 }
 
+void cleanup_all_jobs() {
+    Job *current = job_list;
+    while (current != NULL) {
+        Job *next = current->next;
+        free(current->cmd);
+        free(current);
+        current = next;
+    }
+    job_list = NULL;
+}
+
 void print_jobs() {
     // First, cleanup done jobs
     Job *current = job_list;

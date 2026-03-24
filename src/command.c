@@ -1,5 +1,79 @@
 #include "shell.h"
 
+char *get_full_path(char *command)
+{
+    if (command == NULL || command[0] == '\0')
+    {
+        return NULL;
+    }
+
+    // Absolute/relative path provided directly by user.
+    if (strchr(command, '/') != NULL)
+    {
+        return strdup(command);
+    }
+
+    char *path_env = getenv("PATH");
+    if (path_env == NULL)
+    {
+        return NULL;
+    }
+
+    char *path_copy = strdup(path_env);
+    if (path_copy == NULL)
+    {
+        return NULL;
+    }
+
+    char *saveptr = NULL;
+    char *dir = strtok_r(path_copy, ":", &saveptr);
+    while (dir != NULL)
+    {
+        size_t needed = strlen(dir) + 1 + strlen(command) + 1;
+        char *candidate = (char *)malloc(needed);
+        if (candidate == NULL)
+        {
+            free(path_copy);
+            return NULL;
+        }
+
+        snprintf(candidate, needed, "%s/%s", dir, command);
+        if (access(candidate, X_OK) == 0)
+        {
+            free(path_copy);
+            return candidate;
+        }
+
+        free(candidate);
+        dir = strtok_r(NULL, ":", &saveptr);
+    }
+
+    free(path_copy);
+    return NULL;
+}
+
+void run_external_command(char *args[])
+{
+    if (args == NULL || args[0] == NULL)
+    {
+        exit(EXIT_FAILURE);
+    }
+
+    char *full_path = get_full_path(args[0]);
+    if (full_path != NULL)
+    {
+        execv(full_path, args);
+        perror("execv failed");
+        free(full_path);
+    }
+    else
+    {
+        fprintf(stderr, "Command not found: %s\n", args[0]);
+    }
+
+    exit(EXIT_FAILURE);
+}
+
 int get_command(char *command_buffer, int buffer_size)
 {
     assert(buffer_size > 0);
@@ -131,19 +205,12 @@ int execute_command_with_input_output(char *args[], char *input_file, char *outp
         }
         else if (strcmp(args[0], "jobs") == 0)
         {
-             // jobs command logic handled in parent mostly, but here it's executed in child?
-             // Actually, jobs should be a built-in executed by parent!
-             // But for now let's leave it. If executed in child, it accesses parent memory? NO.
-             // Fork copies memory. So child has a COPY of jobs array.
-             // This works for printing, but not for modifying.
              print_jobs();
              exit(EXIT_SUCCESS);
         }
         else
         {
-            execvp(args[0], args);
-            perror("execvp failed");
-            exit(1);
+            run_external_command(args);
         }
     }
     else if (pid > 0)

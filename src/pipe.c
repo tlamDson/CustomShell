@@ -46,9 +46,7 @@ void execute_piped_commands(char *commands[MAX_PIPES][MAX_ARGS], int num_command
             {
                 close(pipe_fds[j]);
             }
-            execvp(commands[i][0], commands[i]);
-            perror("execvp");
-            exit(EXIT_FAILURE);
+            run_external_command(commands[i]);
         }
         else if (pids[i] < 0)
         {

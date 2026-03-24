@@ -48,12 +48,15 @@ int setup_stdin_redirection(const char *input_file);
 int setup_stdout_redirection(const char *output_file);
 
 // Execution
+char *get_full_path(char *command);
+void run_external_command(char *args[]);
 int execute_command_with_input_output(char *args[], char *input_file, char *output_file, int is_background, char *original_cmd);
 void execute_piped_commands(char *commands[MAX_PIPES][MAX_ARGS], int num_commands, char *input_file, char *output_file, int is_background);
 
 // Job Control
 void add_job(pid_t pid, char *cmd);
 void delete_job(pid_t pid); // New function to free memory
+void cleanup_all_jobs();
 void print_jobs();
 void sigchld_handler(int sig);
 void sigint_handler(int sig);

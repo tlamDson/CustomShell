@@ -4,12 +4,14 @@ A small Unix-like shell written in C.
 
 ## Features
 
-- Execute commands with `fork` and `execvp`
+- Execute commands with `fork` and `execv`
+- Custom `$PATH` resolution via `getenv("PATH")`
 - Input/output redirection
 - Pipes
 - Background jobs (`&`)
 - Basic job control list (`jobs`)
 - Signal handling (`SIGINT`, `SIGCHLD`)
+- Cleanup all jobs on shell exit to avoid leaks
 
 ## Requirements
 
@@ -84,6 +86,28 @@ Quick non-interactive test:
 ```bash
 printf "exit\n" | ./bin/customShell
 ```
+
+PATH resolution test:
+
+```bash
+cat > /tmp/shell_path_test_input.txt <<"EOF"
+pwd
+/bin/echo ABS_OK
+abcxyz123
+exit
+EOF
+./bin/customShell < /tmp/shell_path_test_input.txt
+```
+
+Expected:
+
+- `pwd` runs normally (found through `$PATH`)
+- `/bin/echo ABS_OK` runs directly (absolute path)
+- Unknown command prints `Command not found: ...`
+
+Parser note:
+
+- Redirection tokens must be separated by spaces, for example: `ls > out.txt`
 
 ## Valgrind Memory-Leak Testing
 

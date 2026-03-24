@@ -47,6 +47,7 @@ int main()
         // Handle 'exit' command directly
         if (strcmp(command_line, "exit") == 0)
         {
+            cleanup_all_jobs();
             break;
         }
         
@@ -80,6 +81,8 @@ int main()
              execute_piped_commands(commands, num_commands, input_file, output_file, is_background);
         }
     }
+
+    cleanup_all_jobs();
 
     return 0;
 }
