@@ -89,6 +89,18 @@ Quick non-interactive test:
 printf "exit\n" | ./bin/customShell
 ```
 
+Automated TDD suite (Python, split by feature):
+
+```bash
+python3 -m unittest discover -s tests/python -p "test_*.py" -v
+```
+
+Single entrypoint file (run all Python tests):
+
+```bash
+python3 tests/python/test_all.py
+```
+
 PATH resolution test:
 
 ```bash
