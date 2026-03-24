@@ -1,30 +1,124 @@
-# Welcome to My Custom Shell
+# CustomShell
 
-This is my final project for the term. This code is written in C and it can do anything the original shell did but you can custom it.
+A small Unix-like shell written in C.
 
-What I do is I create another process using fork() and in the child process I will execute any input from the user.
+## Features
 
-By doing this, I can customize some commands the original shell can't do.
+- Execute commands with `fork` and `execvp`
+- Input/output redirection
+- Pipes
+- Background jobs (`&`)
+- Basic job control list (`jobs`)
+- Signal handling (`SIGINT`, `SIGCHLD`)
 
-For example, I custome the help and Ctrl+C command.
+## Requirements
 
-# Usage
+- Linux environment (recommended: WSL on Windows)
+- `gcc`
+- `make`
+- `valgrind` (for memory-leak testing)
 
-Run
+## Setup (WSL)
 
+From Windows PowerShell:
+
+```bash
+wsl
 ```
-gcc -Wall -Werror -g -Og -o customShell customShell.c
-./customShell
+
+Inside WSL, go to the project folder:
+
+```bash
+cd /mnt/d/Desktop/CustomShell\ -\ Copy
 ```
 
-### Contributers
+Install build tools and Valgrind:
 
-| Name     | Email                |
-| -------- | -------------------- |
-| Lam Pham | phamla@dickinson.edu |
+```bash
+sudo apt update
+sudo apt install -y build-essential valgrind
+```
 
-## Contents
+If `apt` shows lock/permission errors, make sure you used `sudo`.
 
-- [Description](#description)
-- [Instructions](#instructions)
-- [Credits](#credits)
+If `apt` shows `404 Not Found`, refresh package metadata:
+
+```bash
+sudo apt clean
+sudo rm -rf /var/lib/apt/lists/*
+sudo apt update --fix-missing
+```
+
+## Build
+
+Use the Makefile:
+
+```bash
+make -B
+```
+
+Output binary:
+
+```bash
+bin/customShell
+```
+
+## Run
+
+```bash
+./bin/customShell
+```
+
+Example:
+
+```text
+shell208> ls
+shell208> jobs
+shell208> exit
+```
+
+## Test
+
+Quick non-interactive test:
+
+```bash
+printf "exit\n" | ./bin/customShell
+```
+
+## Valgrind Memory-Leak Testing
+
+Run with full leak diagnostics:
+
+```bash
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./bin/customShell
+```
+
+To test the background-job exit scenario:
+
+```text
+shell208> sleep 30 &
+shell208> exit
+```
+
+Automated check:
+
+```bash
+printf "sleep 5 &\nexit\n" | valgrind --leak-check=full --show-leak-kinds=all ./bin/customShell
+```
+
+Expected after cleanup logic:
+
+- No `definitely lost` bytes
+- No `indirectly lost` bytes
+
+## Clean
+
+Remove build artifacts:
+
+```bash
+make clean
+```
+
+## Author
+
+- Lam Pham
