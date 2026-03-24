@@ -29,6 +29,9 @@ int main()
 
         if (result == COMMAND_END_OF_FILE)
         {
+            // Ctrl+D sends EOF on an empty prompt line: exit shell gracefully.
+            putchar('\n');
+            cleanup_all_jobs();
             break;
         }
         else if (result == COMMAND_INPUT_FAILED)

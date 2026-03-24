@@ -6,6 +6,7 @@ void print_help() {
     printf("Here are some commands commands:\n");
     printf("help\tShow this help message\n");
     printf("exit\tExit the shell\n");
+    printf("Ctrl+D\tExit the shell (EOF)\n");
     printf("jobs\tList background jobs\n");
     printf("ls\tList directory contents\n");
     printf("pwd\tPrint the working directory\n");

@@ -76,8 +76,10 @@ Example:
 ```text
 shell208> ls
 shell208> jobs
-shell208> exit
+shell208> Ctrl+D
 ```
+
+You can still type `exit`, but pressing Ctrl+D on an empty prompt will exit the shell.
 
 ## Test
 
