@@ -4,8 +4,19 @@ Job *job_list = NULL;
 int next_job_id = 1;
 
 void init_shell() {
-    signal(SIGINT, sigint_handler);
-    signal(SIGCHLD, sigchld_handler);
+    struct sigaction sa_int;
+    memset(&sa_int, 0, sizeof(sa_int));
+    sa_int.sa_handler = sigint_handler;
+    sigemptyset(&sa_int.sa_mask);
+    sa_int.sa_flags = 0; // Do not restart blocked input calls.
+    sigaction(SIGINT, &sa_int, NULL);
+
+    struct sigaction sa_chld;
+    memset(&sa_chld, 0, sizeof(sa_chld));
+    sa_chld.sa_handler = sigchld_handler;
+    sigemptyset(&sa_chld.sa_mask);
+    sa_chld.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+    sigaction(SIGCHLD, &sa_chld, NULL);
 }
 
 void add_job(pid_t pid, char *cmd) {

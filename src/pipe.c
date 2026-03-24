@@ -1,6 +1,6 @@
 #include "shell.h"
 
-void execute_piped_commands(char *commands[MAX_PIPES][MAX_ARGS], int num_commands, char *input_file, char *output_file, int is_background)
+int execute_piped_commands(char *commands[MAX_PIPES][MAX_ARGS], int num_commands, char *input_file, char *output_file, int is_background)
 {
     int pipe_fds[2 * (num_commands - 1)];
     int i;
@@ -21,7 +21,13 @@ void execute_piped_commands(char *commands[MAX_PIPES][MAX_ARGS], int num_command
         if (pids[i] == 0)
         { 
             // Child
-            setpgid(0, 0); // Create new process group
+            if (is_background)
+            {
+                setpgid(0, 0); // Detach background jobs from shell process group
+            }
+
+            // Child should react to Ctrl+C normally.
+            signal(SIGINT, SIG_DFL);
 
             if (i == 0 && input_file)
             { 
@@ -68,11 +74,25 @@ void execute_piped_commands(char *commands[MAX_PIPES][MAX_ARGS], int num_command
         char cmd_name[100];
         snprintf(cmd_name, sizeof(cmd_name), "%s | ...", commands[0][0]);
         add_job(pids[num_commands-1], cmd_name); 
+        return 0;
     } else {
         // Wait for all children
+        int status = 0;
         for (i = 0; i < num_commands; i++)
         {
-            waitpid(pids[i], NULL, 0);
+            while (waitpid(pids[i], &status, 0) == -1 && errno == EINTR)
+            {
+            }
         }
+
+        if (WIFEXITED(status))
+        {
+            return WEXITSTATUS(status);
+        }
+        if (WIFSIGNALED(status))
+        {
+            return 128 + WTERMSIG(status);
+        }
+        return 1;
     }
 }

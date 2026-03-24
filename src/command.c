@@ -79,11 +79,18 @@ int get_command(char *command_buffer, int buffer_size)
     assert(buffer_size > 0);
     assert(command_buffer != NULL);
 
+    command_buffer[0] = '\0';
+
     if (fgets(command_buffer, buffer_size, stdin) == NULL)
     {
         if (feof(stdin))
         {
             return COMMAND_END_OF_FILE;
+        }
+        else if (errno == EINTR)
+        {
+            clearerr(stdin);
+            return COMMAND_INPUT_SUCCEEDED;
         }
         else
         {
@@ -186,7 +193,13 @@ int execute_command_with_input_output(char *args[], char *input_file, char *outp
     if (pid == 0)
     {
         // Child Process
-        setpgid(0, 0); // Create new process group
+        if (is_background)
+        {
+            setpgid(0, 0); // Detach background jobs from shell process group
+        }
+
+        // Child should react to Ctrl+C normally.
+        signal(SIGINT, SIG_DFL);
 
         if (input_file != NULL && setup_stdin_redirection(input_file) == -1)
         {
@@ -219,12 +232,25 @@ int execute_command_with_input_output(char *args[], char *input_file, char *outp
         if (is_background) {
             add_job(pid, original_cmd ? original_cmd : args[0]);
             // Don't wait!
+            return 0;
         } else {
             // Foreground job
             int status;
-            // Wait for this specific child
-            waitpid(pid, &status, 0); 
+            // Retry wait if interrupted by a signal like Ctrl+C.
+            while (waitpid(pid, &status, 0) == -1 && errno == EINTR)
+            {
+            }
             fflush(stdout);
+
+            if (WIFEXITED(status))
+            {
+                return WEXITSTATUS(status);
+            }
+            if (WIFSIGNALED(status))
+            {
+                return 128 + WTERMSIG(status);
+            }
+            return 1;
         }
     }
     else
@@ -233,5 +259,5 @@ int execute_command_with_input_output(char *args[], char *input_file, char *outp
         exit(1);
     }
 
-    return 0;
+    return 1;
 }
