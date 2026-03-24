@@ -7,6 +7,7 @@ Small Unix-like shell in C.
 1. Batch mode: run shell with a script file argument.
 2. Logical operators: short-circuit execution for `&&` and `||`.
 3. Aliases: define, override, recursive expansion, loop protection.
+4. History navigation: `Up`/`Down` arrows recall previous/next commands.
 
 Other supported behavior:
 
@@ -113,6 +114,18 @@ shell208> jobs
 ```
 
 Expected: foreground sleep is interrupted; background sleep shows `Running` then `Done`.
+
+### Command history (Up/Down arrows)
+
+```text
+shell208> echo first
+shell208> echo second
+(press Up) -> shows: echo second
+(press Up) -> shows: echo first
+(press Down) -> shows: echo second
+```
+
+Expected: Up/Down cycles command history without retyping.
 
 ## Automated Tests
 

@@ -16,6 +16,7 @@
 #define MAX_ARGS 128
 #define MAX_PIPES 10
 #define MAX_JOBS 20
+#define SHELL_PROMPT "shell208> "
 
 // Return values for get_command
 #define COMMAND_INPUT_SUCCEEDED 0

@@ -221,7 +221,7 @@ static int execute_with_logical_operators(char *command_line)
 
 int main(int argc, char *argv[])
 {
-    const char *prompt = "shell208> ";
+    const char *prompt = SHELL_PROMPT;
     char command_line[COMMAND_BUFFER_SIZE];
     int interactive_mode;
 

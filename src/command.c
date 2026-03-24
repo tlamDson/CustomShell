@@ -1,5 +1,46 @@
 #include "shell.h"
 
+#include <termios.h>
+
+#define HISTORY_SIZE 128
+
+static char command_history[HISTORY_SIZE][COMMAND_BUFFER_SIZE];
+static int history_count = 0;
+
+static void add_history_entry(const char *line)
+{
+    if (line == NULL || line[0] == '\0')
+    {
+        return;
+    }
+
+    if (history_count > 0 && strcmp(command_history[history_count - 1], line) == 0)
+    {
+        return;
+    }
+
+    if (history_count < HISTORY_SIZE)
+    {
+        strncpy(command_history[history_count], line, COMMAND_BUFFER_SIZE - 1);
+        command_history[history_count][COMMAND_BUFFER_SIZE - 1] = '\0';
+        history_count++;
+        return;
+    }
+
+    for (int i = 1; i < HISTORY_SIZE; i++)
+    {
+        strncpy(command_history[i - 1], command_history[i], COMMAND_BUFFER_SIZE);
+    }
+    strncpy(command_history[HISTORY_SIZE - 1], line, COMMAND_BUFFER_SIZE - 1);
+    command_history[HISTORY_SIZE - 1][COMMAND_BUFFER_SIZE - 1] = '\0';
+}
+
+static void redraw_input_line(const char *line)
+{
+    printf("\r\033[2K%s%s", SHELL_PROMPT, line);
+    fflush(stdout);
+}
+
 char *get_full_path(char *command)
 {
     if (command == NULL || command[0] == '\0')
@@ -81,34 +122,179 @@ int get_command(char *command_buffer, int buffer_size)
 
     command_buffer[0] = '\0';
 
-    if (fgets(command_buffer, buffer_size, stdin) == NULL)
+    if (!isatty(STDIN_FILENO))
     {
-        if (feof(stdin))
+        if (fgets(command_buffer, buffer_size, stdin) == NULL)
         {
-            return COMMAND_END_OF_FILE;
+            if (feof(stdin))
+            {
+                return COMMAND_END_OF_FILE;
+            }
+            else if (errno == EINTR)
+            {
+                clearerr(stdin);
+                return COMMAND_INPUT_SUCCEEDED;
+            }
+            else
+            {
+                return COMMAND_INPUT_FAILED;
+            }
         }
-        else if (errno == EINTR)
+
+        int command_length = strlen(command_buffer);
+        if (command_length == buffer_size - 1 && command_buffer[command_length - 1] != '\n')
         {
-            clearerr(stdin);
-            return COMMAND_INPUT_SUCCEEDED;
+            int ch;
+            while ((ch = getchar()) != '\n' && ch != EOF)
+            {
+            }
+            command_buffer[0] = '\0';
+            return COMMAND_TOO_LONG;
         }
-        else
+
+        if (command_length > 0 && command_buffer[command_length - 1] == '\n') {
+            command_buffer[command_length - 1] = '\0';
+            command_length--;
+        }
+        if (command_length > 0 && command_buffer[command_length - 1] == '\r') {
+            command_buffer[command_length - 1] = '\0';
+            command_length--;
+        }
+
+        return COMMAND_INPUT_SUCCEEDED;
+    }
+
+    struct termios oldt;
+    struct termios newt;
+    if (tcgetattr(STDIN_FILENO, &oldt) == -1)
+    {
+        return COMMAND_INPUT_FAILED;
+    }
+
+    newt = oldt;
+    newt.c_lflag &= (tcflag_t)~(ICANON | ECHO);
+    newt.c_cc[VMIN] = 1;
+    newt.c_cc[VTIME] = 0;
+
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &newt) == -1)
+    {
+        return COMMAND_INPUT_FAILED;
+    }
+
+    int length = 0;
+    int history_index = history_count;
+    command_buffer[0] = '\0';
+
+    while (1)
+    {
+        unsigned char c;
+        ssize_t n = read(STDIN_FILENO, &c, 1);
+
+        if (n == -1)
         {
+            if (errno == EINTR)
+            {
+                command_buffer[0] = '\0';
+                tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+                return COMMAND_INPUT_SUCCEEDED;
+            }
+
+            tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
             return COMMAND_INPUT_FAILED;
         }
+
+        if (n == 0)
+        {
+            tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+            return COMMAND_END_OF_FILE;
+        }
+
+        if (c == '\r' || c == '\n')
+        {
+            command_buffer[length] = '\0';
+            putchar('\n');
+            fflush(stdout);
+            add_history_entry(command_buffer);
+            tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+            return COMMAND_INPUT_SUCCEEDED;
+        }
+
+        if (c == 4)
+        {
+            if (length == 0)
+            {
+                tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+                return COMMAND_END_OF_FILE;
+            }
+            continue;
+        }
+
+        if ((c == 127 || c == 8) && length > 0)
+        {
+            length--;
+            command_buffer[length] = '\0';
+            redraw_input_line(command_buffer);
+            continue;
+        }
+
+        if (c == 27)
+        {
+            unsigned char seq[2];
+            if (read(STDIN_FILENO, &seq[0], 1) != 1 || read(STDIN_FILENO, &seq[1], 1) != 1)
+            {
+                continue;
+            }
+
+            if (seq[0] == '[' && seq[1] == 'A')
+            {
+                if (history_count > 0 && history_index > 0)
+                {
+                    history_index--;
+                    strncpy(command_buffer, command_history[history_index], buffer_size - 1);
+                    command_buffer[buffer_size - 1] = '\0';
+                    length = strlen(command_buffer);
+                    redraw_input_line(command_buffer);
+                }
+                continue;
+            }
+
+            if (seq[0] == '[' && seq[1] == 'B')
+            {
+                if (history_count > 0 && history_index < history_count)
+                {
+                    history_index++;
+                    if (history_index == history_count)
+                    {
+                        command_buffer[0] = '\0';
+                    }
+                    else
+                    {
+                        strncpy(command_buffer, command_history[history_index], buffer_size - 1);
+                        command_buffer[buffer_size - 1] = '\0';
+                    }
+                    length = strlen(command_buffer);
+                    redraw_input_line(command_buffer);
+                }
+                continue;
+            }
+
+            continue;
+        }
+
+        if (c >= 32 && c < 127)
+        {
+            if (length < buffer_size - 1)
+            {
+                command_buffer[length++] = (char)c;
+                command_buffer[length] = '\0';
+                putchar((int)c);
+                fflush(stdout);
+            }
+            continue;
+        }
     }
 
-    int command_length = strlen(command_buffer);
-    if (command_length > 0 && command_buffer[command_length - 1] == '\n') {
-        command_buffer[command_length - 1] = '\0';
-        command_length--;
-    }
-    if (command_length > 0 && command_buffer[command_length - 1] == '\r') {
-        command_buffer[command_length - 1] = '\0';
-        command_length--;
-    }
-
-    return COMMAND_INPUT_SUCCEEDED;
+    return COMMAND_INPUT_FAILED;
 }
 
 int parse_command_with_input_output(char *command_line, char *args[], char **input_file, char **output_file, int *is_background)
