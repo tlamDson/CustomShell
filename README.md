@@ -1,225 +1,144 @@
 # CustomShell
 
-A small Unix-like shell written in C.
+Small Unix-like shell in C.
 
-## Features
+## Main Features
 
-- Execute commands with `fork` and `execv`
-- Custom `$PATH` resolution via `getenv("PATH")`
-- Input/output redirection
-- Pipes
-- Background jobs (`&`)
-- Basic job control list (`jobs`)
-- Signal handling (`SIGINT`, `SIGCHLD`)
-- Cleanup all jobs on shell exit to avoid leaks
+1. Batch mode: run shell with a script file argument.
+2. Logical operators: short-circuit execution for `&&` and `||`.
+3. Aliases: define, override, recursive expansion, loop protection.
+
+Other supported behavior:
+
+1. `cd`, `PWD/OLDPWD`, `jobs`, pipes, redirection, background jobs, Ctrl+C/Ctrl+D handling.
 
 ## Requirements
 
-- Linux environment (recommended: WSL on Windows)
-- `gcc`
-- `make`
-- `valgrind` (for memory-leak testing)
+1. Linux environment (WSL recommended on Windows)
+2. `gcc`, `make`, `python3`
 
-## Setup (WSL)
+Optional:
 
-From Windows PowerShell:
+1. `valgrind`
+
+## Setup And Build
+
+If you are in Windows PowerShell:
 
 ```bash
 wsl
-```
-
-Inside WSL, go to the project folder:
-
-```bash
 cd /mnt/d/Desktop/CustomShell\ -\ Copy
-```
-
-Install build tools and Valgrind:
-
-```bash
-sudo apt update
-sudo apt install -y build-essential valgrind
-```
-
-If `apt` shows lock/permission errors, make sure you used `sudo`.
-
-If `apt` shows `404 Not Found`, refresh package metadata:
-
-```bash
-sudo apt clean
-sudo rm -rf /var/lib/apt/lists/*
-sudo apt update --fix-missing
-```
-
-## Build
-
-Use the Makefile:
-
-```bash
 make -B
 ```
 
-Output binary:
+If you are already inside WSL terminal, do not type `wsl` again:
 
 ```bash
-bin/customShell
+cd /mnt/d/Desktop/CustomShell\ -\ Copy
+make -B
 ```
 
-## Run
+Run shell:
 
 ```bash
 ./bin/customShell
 ```
 
-Example:
+Run batch mode:
+
+```bash
+./bin/customShell /path/to/script.txt
+```
+
+## Manual Tests
+
+### Batch mode
+
+```bash
+cat >/tmp/batch_test.txt <<"EOF"
+echo one
+
+echo two
+echo three
+EOF
+./bin/customShell /tmp/batch_test.txt
+```
+
+Expected: prints `one`, `two`, `three` and exits.
+
+### Logical operators
 
 ```text
-shell208> ls
+shell208> true && echo AND_OK
+shell208> false && echo SHOULD_NOT_PRINT
+shell208> true || echo SHOULD_NOT_PRINT
+shell208> false || echo OR_OK
+shell208> false && echo NOPE || echo Done
+```
+
+Expected: `AND_OK`, `OR_OK`, `Done`; no `SHOULD_NOT_PRINT`, no `NOPE`.
+
+### Aliases
+
+```text
+shell208> alias l='echo LS -l'
+shell208> l -a
+shell208> alias a='b'
+shell208> alias b='a'
+shell208> a
+```
+
+Expected: `LS -l -a` is printed; alias loop is detected and shell does not hang.
+
+### CD and env vars
+
+```text
+shell208> env | grep PWD
+shell208> cd /tmp
+shell208> env | grep PWD
+shell208> cd -
+```
+
+Expected: `PWD` and `OLDPWD` update correctly.
+
+### Ctrl+C and background job
+
+```text
+shell208> sleep 5
+(press Ctrl+C)
+shell208> sleep 3 &
 shell208> jobs
-shell208> Ctrl+D
+shell208> sleep 4
+shell208> jobs
 ```
 
-You can still type `exit`, but pressing Ctrl+D on an empty prompt will exit the shell.
+Expected: foreground sleep is interrupted; background sleep shows `Running` then `Done`.
 
-## Test
+## Automated Tests
 
-Quick non-interactive test:
-
-```bash
-printf "exit\n" | ./bin/customShell
-```
-
-Automated TDD suite (Python, split by feature):
-
-```bash
-python3 -m unittest discover -s tests/python -p "test_*.py" -v
-```
-
-Single entrypoint file (run all Python tests):
+Run all test files:
 
 ```bash
 python3 tests/python/test_all.py
 ```
 
-PATH resolution test:
+Or discovery mode:
 
 ```bash
-cat > /tmp/shell_path_test_input.txt <<"EOF"
-pwd
-/bin/echo ABS_OK
-abcxyz123
-exit
-EOF
-./bin/customShell < /tmp/shell_path_test_input.txt
+python3 -m unittest discover -s tests/python -p "test_*.py" -v
 ```
 
-Expected:
+Run each feature test file:
 
-- `pwd` runs normally (found through `$PATH`)
-- `/bin/echo ABS_OK` runs directly (absolute path)
-- Unknown command prints `Command not found: ...`
-
-Parser note:
-
-- Redirection tokens must be separated by spaces, for example: `ls > out.txt`
-
-## CD Test Suite
-
-Run these tests inside the shell to validate `cd` behavior.
-
-### 1. Basic functionality
-
-```text
-shell208> pwd
-shell208> cd /tmp
-shell208> pwd
-shell208> cd ..
-shell208> pwd
-shell208> cd
-shell208> pwd
-shell208> cd ~
-shell208> pwd
-```
-
-Expected:
-
-- `pwd` changes after `cd /tmp` and `cd ..`
-- `cd` (no args) returns to `$HOME`
-- `cd ~` also returns to `$HOME`
-
-### 2. Edge cases
-
-```text
-shell208> cd /tmp
-shell208> cd -
-shell208> cd does_not_exist_123
-shell208> cd /root
-```
-
-Expected:
-
-- `cd -` switches to previous directory and prints that path
-- Non-existing path shows `No such file or directory`
-- Permission-restricted path shows `Permission denied`
-
-### 3. Environment variable checks
-
-```text
-shell208> env | grep PWD
-shell208> cd /tmp
-shell208> env | grep PWD
-```
-
-Expected:
-
-- `PWD` updates to new directory
-- `OLDPWD` keeps previous directory
-
-### 4. Memory-leak check (Valgrind)
-
-```bash
-printf "cd /tmp\ncd /\ncd -\ncd ~\ncd does_not_exist_123\nexit\n" | valgrind --leak-check=full --show-leak-kinds=all ./bin/customShell
-```
-
-Expected:
-
-- `All heap blocks were freed -- no leaks are possible`
-- `ERROR SUMMARY: 0 errors from 0 contexts`
-
-## Valgrind Memory-Leak Testing
-
-Run with full leak diagnostics:
-
-```bash
-valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./bin/customShell
-```
-
-To test the background-job exit scenario:
-
-```text
-shell208> sleep 30 &
-shell208> exit
-```
-
-Automated check:
-
-```bash
-printf "sleep 5 &\nexit\n" | valgrind --leak-check=full --show-leak-kinds=all ./bin/customShell
-```
-
-Expected after cleanup logic:
-
-- No `definitely lost` bytes
-- No `indirectly lost` bytes
+1. Batch mode: `python3 tests/python/test_batch_mode.py`
+2. Logical operators: `python3 tests/python/test_logical_operations.py`
+3. Aliases: `python3 tests/python/test_aliases.py`
+4. CD, PWD, OLDPWD: `python3 tests/python/test_cd_pwd_oldpwd.py`
+5. Ctrl+C behavior: `python3 tests/python/test_ctrl_c.py`
+6. Background jobs: `python3 tests/python/test_background_jobs.py`
 
 ## Clean
-
-Remove build artifacts:
 
 ```bash
 make clean
 ```
-
-## Author
-
-- Lam Pham
