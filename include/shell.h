@@ -39,6 +39,9 @@ extern int next_job_id;
 int get_command(char *command_buffer, int buffer_size);
 void print_help();
 int builtin_cd(char *args[], int argc);
+int handle_alias_command(const char *line);
+int expand_alias_command(const char *input, char *output, size_t output_size);
+void cleanup_aliases();
 void init_shell();
 
 // Parsing
@@ -53,7 +56,7 @@ int setup_stdout_redirection(const char *output_file);
 char *get_full_path(char *command);
 void run_external_command(char *args[]);
 int execute_command_with_input_output(char *args[], char *input_file, char *output_file, int is_background, char *original_cmd);
-void execute_piped_commands(char *commands[MAX_PIPES][MAX_ARGS], int num_commands, char *input_file, char *output_file, int is_background);
+int execute_piped_commands(char *commands[MAX_PIPES][MAX_ARGS], int num_commands, char *input_file, char *output_file, int is_background);
 
 // Job Control
 void add_job(pid_t pid, char *cmd);
