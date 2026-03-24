@@ -100,3 +100,9 @@ void sigchld_handler(int sig) {
     }
 }
 
+void sigint_handler(int sig) {
+    (void)sig;
+    ssize_t written = write(STDOUT_FILENO, "\n", 1);
+    (void)written;
+}
+
