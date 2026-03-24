@@ -111,6 +111,69 @@ Parser note:
 
 - Redirection tokens must be separated by spaces, for example: `ls > out.txt`
 
+## CD Test Suite
+
+Run these tests inside the shell to validate `cd` behavior.
+
+### 1. Basic functionality
+
+```text
+shell208> pwd
+shell208> cd /tmp
+shell208> pwd
+shell208> cd ..
+shell208> pwd
+shell208> cd
+shell208> pwd
+shell208> cd ~
+shell208> pwd
+```
+
+Expected:
+
+- `pwd` changes after `cd /tmp` and `cd ..`
+- `cd` (no args) returns to `$HOME`
+- `cd ~` also returns to `$HOME`
+
+### 2. Edge cases
+
+```text
+shell208> cd /tmp
+shell208> cd -
+shell208> cd does_not_exist_123
+shell208> cd /root
+```
+
+Expected:
+
+- `cd -` switches to previous directory and prints that path
+- Non-existing path shows `No such file or directory`
+- Permission-restricted path shows `Permission denied`
+
+### 3. Environment variable checks
+
+```text
+shell208> env | grep PWD
+shell208> cd /tmp
+shell208> env | grep PWD
+```
+
+Expected:
+
+- `PWD` updates to new directory
+- `OLDPWD` keeps previous directory
+
+### 4. Memory-leak check (Valgrind)
+
+```bash
+printf "cd /tmp\ncd /\ncd -\ncd ~\ncd does_not_exist_123\nexit\n" | valgrind --leak-check=full --show-leak-kinds=all ./bin/customShell
+```
+
+Expected:
+
+- `All heap blocks were freed -- no leaks are possible`
+- `ERROR SUMMARY: 0 errors from 0 contexts`
+
 ## Valgrind Memory-Leak Testing
 
 Run with full leak diagnostics:

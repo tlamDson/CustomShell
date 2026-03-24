@@ -10,6 +10,7 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <limits.h>
 
 #define COMMAND_BUFFER_SIZE 102
 #define MAX_ARGS 128
@@ -37,6 +38,7 @@ extern int next_job_id;
 // Function prototypes
 int get_command(char *command_buffer, int buffer_size);
 void print_help();
+int builtin_cd(char *args[], int argc);
 void init_shell();
 
 // Parsing

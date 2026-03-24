@@ -47,6 +47,31 @@ int main()
 
         if (strlen(command_line) == 0) continue;
 
+        // Handle 'cd' in the parent shell process so cwd really changes.
+        {
+            char cd_parse_buffer[COMMAND_BUFFER_SIZE];
+            char *cd_args[MAX_ARGS];
+            int cd_background = 0;
+            char *cd_input_file = NULL;
+            char *cd_output_file = NULL;
+
+            strncpy(cd_parse_buffer, command_line, COMMAND_BUFFER_SIZE - 1);
+            cd_parse_buffer[COMMAND_BUFFER_SIZE - 1] = '\0';
+            int cd_argc = parse_command_with_input_output(
+                cd_parse_buffer,
+                cd_args,
+                &cd_input_file,
+                &cd_output_file,
+                &cd_background
+            );
+
+            if (cd_argc > 0 && strcmp(cd_args[0], "cd") == 0)
+            {
+                builtin_cd(cd_args, cd_argc);
+                continue;
+            }
+        }
+
         // Handle 'exit' command directly
         if (strcmp(command_line, "exit") == 0)
         {
